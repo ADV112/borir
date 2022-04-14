@@ -300,6 +300,200 @@ class User extends MY_Controller
 
 		$this->load->view('user/template/template', $this->data);
 	}
+
+	public function jasa_titip()
+	{
+		$apiKey = 'DEV-XrtFgNjzXCSgxhak3yIi8abz06uExtsK275y0tdd';
+
+		$payload = ['code' => ''];
+
+		$curl = curl_init();
+
+		curl_setopt_array($curl, array(
+			CURLOPT_FRESH_CONNECT  => true,
+			CURLOPT_URL            => 'https://tripay.co.id/api-sandbox/merchant/payment-channel?' . http_build_query($payload),
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_HEADER         => false,
+			CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $apiKey],
+			CURLOPT_FAILONERROR    => false
+		));
+
+		$response = curl_exec($curl);
+		$error = curl_error($curl);
+
+		curl_close($curl);
+
+		$this->data['payment_channel'] = json_decode($response, true);
+		$this->data['province'] = $this->province_m->get(['prov_id' => 6]);
+		$this->data['title'] = ' | Jasa Titip';
+		$this->data['content'] = 'jasa_titip';
+
+		$this->load->view('user/template/template', $this->data);
+	}
+
+	public function create_payment_jastip()
+	{
+		echo '<pre>';
+		print_r($this->input->post());
+		echo '</pre>';
+		exit;
+		$alamat = $this->user_data_m->get_row(['username' => $this->data['username']]);
+		if ($alamat->province != $this->POST('province_pengirim') || $alamat->city != $this->POST('city_pengirim') || $alamat->district != $this->POST('district_pengirim') || $alamat->subdistrict != $this->POST('subdistrict_pengirim') || $alamat->address != $this->POST('alamat_pengirim')) {
+			$alamat_input = [
+				'province' => $this->POST('province_pengirim'),
+				'city' => $this->POST('city_pengirim'),
+				'district' => $this->POST('district_pengirim'),
+				'subdistrict' => $this->POST('subdistrict_pengirim'),
+				'address' => $this->POST('alamat_pengirim')
+			];
+
+			$this->user_data_m->update($this->data['username'], $alamat_input);
+		}
+
+		/*
+		Service :
+		1. Jasa Antar
+		2. Jasa Titip
+		3. BIMART
+		*/
+		$amount = 0;
+		foreach ($this->POST('harga_barang') as $key => $value) {
+			$amount += $value;
+		}
+
+		if ($this->POST('layanan') == 'Reguler') {
+			$amount += 10000;
+		} else {
+			$amount += 15000;
+		}
+
+		if (!empty($this->POST('metode')) && $this->POST('metode') != 'COD') {
+			$apiKey       = 'DEV-XrtFgNjzXCSgxhak3yIi8abz06uExtsK275y0tdd';
+			$privateKey   = 'JDmr7-LaXxM-C7p5I-WKN2G-mTbNw';
+			$merchantCode = 'T10916';
+			$merchantRef  = '';
+
+			$data = [
+				'method'         => $this->POST('metode'),
+				'merchant_ref'   => $merchantRef,
+				'amount'         => $amount,
+				'customer_name'  => $this->POST('nama_pengirim'),
+				'customer_email' => $this->POST('email'),
+				'customer_phone' => $this->POST('phone_number'),
+				'order_items'    => [
+					[
+						'sku'         => 'BA-01',
+						'name'        => 'Jasa Antar',
+						'price'       => $amount,
+						'quantity'    => 1
+					]
+				],
+				'expired_time' => (time() + (24 * 60 * 60)), // 24 jam
+				'signature'    => hash_hmac('sha256', $merchantCode . $merchantRef . $amount, $privateKey)
+			];
+
+			$curl = curl_init();
+
+			curl_setopt_array($curl, [
+				CURLOPT_FRESH_CONNECT  => true,
+				CURLOPT_URL            => 'https://tripay.co.id/api-sandbox/transaction/create',
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_HEADER         => false,
+				CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $apiKey],
+				CURLOPT_FAILONERROR    => false,
+				CURLOPT_POST           => true,
+				CURLOPT_POSTFIELDS     => http_build_query($data)
+			]);
+
+			$response = curl_exec($curl);
+			$error = curl_error($curl);
+
+			curl_close($curl);
+
+			$data = json_decode($response, true);
+			$alamat_pengirim = implode(';', [
+				'province' => $this->POST('province_pengirim'),
+				'city' => $this->POST('city_pengirim'),
+				'district' => $this->POST('district_pengirim'),
+				'subdistrict' => $this->POST('subdistrict_pengirim'),
+				'address' => $this->POST('alamat_pengirim')
+			]);
+
+			$data_to_input = [
+				'username' => $this->data['username'],
+				'reference' => $data['data']['reference'],
+				'service' => 2,
+				'service_type' => ($this->POST('layanan') == 'Reguler') ? 1 : 2,
+				'amount' => $data['data']['amount'],
+				'address_detail' => $alamat_pengirim,
+				'payment' => $this->POST('metode'),
+				'status' => 0
+			];
+
+			$this->transaksi_m->insert($data_to_input);
+			$insert_id = $this->db->insert_id();
+
+			for ($i = 0; $i < count($this->POST('nama_penerima')); $i++) {
+				$trans_detail = implode(';', [
+					$this->POST('nama_penerima')[$i],
+					$this->POST('kontak_penerima')[$i],
+					$this->POST('jenis_barang')[$i],
+					$this->POST('alamat')[$i],
+				]);
+
+				$this->transaksi_detail_m->insert([
+					'id_transaction' => $insert_id,
+					'detail' => $trans_detail
+				]);
+			}
+
+			$base_64 = base64_encode($insert_id);
+			$url_param = rtrim($base_64, '=');
+
+			redirect('user/invoice/' . $url_param);
+		} else {
+			$alamat_pengirim = implode(';', [
+				'province' => $this->POST('province_pengirim'),
+				'city' => $this->POST('city_pengirim'),
+				'district' => $this->POST('district_pengirim'),
+				'subdistrict' => $this->POST('subdistrict_pengirim'),
+				'address' => $this->POST('alamat_pengirim')
+			]);
+
+			$data_to_input = [
+				'username' => $this->data['username'],
+				'reference' => '',
+				'service' => 2,
+				'service_type' => ($this->POST('layanan') == 'Reguler') ? 1 : 2,
+				'amount' => $amount,
+				'address_detail' => $alamat_pengirim,
+				'payment' => $this->POST('metode'),
+				'status' => 0
+			];
+
+			$this->transaksi_m->insert($data_to_input);
+			$insert_id = $this->db->insert_id();
+
+			for ($i = 0; $i < count($this->POST('nama_penerima')); $i++) {
+				$trans_detail = implode(';', [
+					$this->POST('nama_penerima')[$i],
+					$this->POST('kontak_penerima')[$i],
+					$this->POST('jenis_barang')[$i],
+					$this->POST('alamat')[$i],
+				]);
+
+				$this->transaksi_detail_m->insert([
+					'id_transaction' => $insert_id,
+					'detail' => $trans_detail
+				]);
+			}
+
+			$base_64 = base64_encode($insert_id);
+			$url_param = rtrim($base_64, '=');
+
+			redirect('user/invoice/' . $url_param);
+		}
+	}
 }
 
 /* End of file User.php */

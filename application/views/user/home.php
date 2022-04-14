@@ -18,12 +18,12 @@
 							</a>
 						</div>
 						<div>
-							<div class="uk-card uk-border-rounded uk-box-shadow-hover-small">
+							<a href="<?= site_url('user/jasa-titip') ?>" class="uk-link-reset uk-card uk-border-rounded uk-box-shadow-hover-small">
 								<div class="uk-card-media-top uk-padding-small uk-text-center">
 									<img src="<?= base_url('assets/img/shopping.png') ?>" class="uk-margin-small-bottom" alt="">
 									<small class="uk-text-bold uk-margin-small-top">Jastip</small>
 								</div>
-							</div>
+							</a>
 						</div>
 						<div>
 							<div class="uk-card uk-border-rounded uk-box-shadow-hover-small">

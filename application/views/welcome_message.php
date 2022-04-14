@@ -12,7 +12,9 @@
 		html,
 		body {
 			background: url('https://getuikit.com/images/section-background.svg') 50% 17vh no-repeat, linear-gradient(to left top, #28a5f5, #1e87f0) 0 0 no-repeat;
-			min-height: 695px;
+			/* min-height: 695px; */
+			min-height: 100vh;
+			background-size: contain;
 		}
 
 		.uk-card {
@@ -20,7 +22,7 @@
 			position: absolute;
 			bottom: 0;
 			justify-content: center;
-			min-height: 65%;
+			/* min-height: 65%; */
 			border-radius: 2rem 2rem 0 0;
 		}
 
