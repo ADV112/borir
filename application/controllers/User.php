@@ -286,6 +286,10 @@ class User extends MY_Controller
 		} else {
 			$this->data['invoice'] = '';
 		}
+
+		// echo '<pre>', print_r($this->data['invoice']);
+		// echo '</pre>';
+		// exit;
 		$this->data['title'] = ' | Invoice';
 		$this->data['content'] = 'invoice';
 
@@ -333,10 +337,10 @@ class User extends MY_Controller
 
 	public function create_payment_jastip()
 	{
-		echo '<pre>';
-		print_r($this->input->post());
-		echo '</pre>';
-		exit;
+		// echo '<pre>', print_r($this->input->post());
+		// echo '</pre>';
+		// exit;
+
 		$alamat = $this->user_data_m->get_row(['username' => $this->data['username']]);
 		if ($alamat->province != $this->POST('province_pengirim') || $alamat->city != $this->POST('city_pengirim') || $alamat->district != $this->POST('district_pengirim') || $alamat->subdistrict != $this->POST('subdistrict_pengirim') || $alamat->address != $this->POST('alamat_pengirim')) {
 			$alamat_input = [
@@ -357,14 +361,35 @@ class User extends MY_Controller
 		3. BIMART
 		*/
 		$amount = 0;
+		$order_items = [];
+		$jenis_barang = $this->POST('jenis_barang');
+		$jumlah_barang = $this->POST('jumlah_barang');
 		foreach ($this->POST('harga_barang') as $key => $value) {
-			$amount += $value;
+			$amount += ($value * $jumlah_barang[$key]);
+			$order_items[] = [
+				'sku' => 'ITM-' . ($key + 1),
+				'name' => $jenis_barang[$key],
+				'price' => $value,
+				'quantity' => $jumlah_barang[$key]
+			];
 		}
 
 		if ($this->POST('layanan') == 'Reguler') {
 			$amount += 10000;
+			$order_items[] = [
+				'sku'         => 'BA-02',
+				'name'        => 'Jasa Titip Reguler',
+				'price'       => '10000',
+				'quantity' => 1
+			];
 		} else {
 			$amount += 15000;
+			$order_items[] = [
+				'sku'         => 'BA-02',
+				'name'        => 'Jasa Titip Express',
+				'price'       => '15000',
+				'quantity' => 1
+			];
 		}
 
 		if (!empty($this->POST('metode')) && $this->POST('metode') != 'COD') {
@@ -380,14 +405,7 @@ class User extends MY_Controller
 				'customer_name'  => $this->POST('nama_pengirim'),
 				'customer_email' => $this->POST('email'),
 				'customer_phone' => $this->POST('phone_number'),
-				'order_items'    => [
-					[
-						'sku'         => 'BA-01',
-						'name'        => 'Jasa Antar',
-						'price'       => $amount,
-						'quantity'    => 1
-					]
-				],
+				'order_items'    => $order_items,
 				'expired_time' => (time() + (24 * 60 * 60)), // 24 jam
 				'signature'    => hash_hmac('sha256', $merchantCode . $merchantRef . $amount, $privateKey)
 			];
@@ -433,12 +451,12 @@ class User extends MY_Controller
 			$this->transaksi_m->insert($data_to_input);
 			$insert_id = $this->db->insert_id();
 
-			for ($i = 0; $i < count($this->POST('nama_penerima')); $i++) {
+			for ($i = 0; $i < count($this->POST('jenis_barang')); $i++) {
 				$trans_detail = implode(';', [
-					$this->POST('nama_penerima')[$i],
-					$this->POST('kontak_penerima')[$i],
 					$this->POST('jenis_barang')[$i],
-					$this->POST('alamat')[$i],
+					$this->POST('harga_barang')[$i],
+					$this->POST('jumlah_barang')[$i],
+					$this->POST('alamat_beli'),
 				]);
 
 				$this->transaksi_detail_m->insert([

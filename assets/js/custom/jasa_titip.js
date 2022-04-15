@@ -16,8 +16,8 @@ $(document).ready(function () {
 			$('#tagihan-form').append('<input type="hidden" id="' + $(this).attr('name') + count + '" name="' + $(this).attr('name') + '[]" value="' + $(this).val() + '"/>');
 		});
 
-		html += '<span class="uk-label">Rp. ' + $('input[name=harga_barang]').val() + '</span>';
-		html += '<p class="uk-text-bold uk-margin-small-top">' + $('input[name=jenis_barang]').val() + '</p>';
+		html += '<span class="uk-label">Rp. ' + ($('input[name=harga_barang]').val() * $('input[name=jumlah_barang]').val()) + '</span>';
+		html += '<p class="uk-text-bold uk-margin-small-top">' + $('input[name=jenis_barang]').val() + ' x ' + $('input[name=jumlah_barang]').val() + '</p>';
 
 		html += '</div>' +
 			'<div class="uk-card-footer">' +
